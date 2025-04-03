@@ -5,8 +5,8 @@ const axios = require("axios");
 const app = express();
 app.use(bodyParser.json());
 
-const TOKEN = "YOUR_TELEGRAM_BOT_TOKEN";
-const CHANNEL = "@YOUR_CHANNEL_USERNAME";
+const TOKEN = "7444335261:AAEd8AW_2ljTgPIUaAX3xmEBUgiy10X0gD4";
+const CHANNEL = "@agahiha24";
 
 app.post("/", async (req, res) => {
   const message = req.body.message;
