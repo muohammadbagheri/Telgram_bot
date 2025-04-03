@@ -1,38 +1,54 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
+const TelegramBot = require('node-telegram-bot-api');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-const app = express();
-app.use(bodyParser.json());
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
-const TOKEN = "7444335261:AAEd8AW_2ljTgPIUaAX3xmEBUgiy10X0gD4";
-const CHANNEL = "@agahiha24";
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch((err) => console.error('MongoDB connection error:', err));
 
-app.post("/", async (req, res) => {
-  const message = req.body.message;
-  if (!message || !message.text) return res.sendStatus(200);
-
-  const text = message.text;
-  const chatId = message.chat.id;
-
-  // ارسال به کانال
-  await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-    chat_id: CHANNEL,
-    text: `آگهی جدید:
-
-${text}`
-  });
-
-  // پاسخ به کاربر
-  await axios.post(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-    chat_id: chatId,
-    text: "آگهی شما دریافت شد و به کانال ارسال شد."
-  });
-
-  res.send("ok");
+const userSchema = new mongoose.Schema({
+  telegramId: String,
+  phone: String,
+  name: String,
+  registered: Boolean
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Bot server is running on port " + PORT);
+const adSchema = new mongoose.Schema({
+  userId: String,
+  title: String,
+  description: String,
+  phone: String,
+  imageId: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model('User', userSchema);
+const Ad = mongoose.model('Ad', adSchema);
+
+bot.onText(/\/start/, async (msg) => {
+  const chatId = msg.chat.id;
+  const user = await User.findOne({ telegramId: chatId });
+
+  if (!user) {
+    await User.create({ telegramId: chatId, registered: false });
+    bot.sendMessage(chatId, 'خوش آمدید! لطفاً شماره همراه خود را وارد کنید:');
+  } else {
+    bot.sendMessage(chatId, 'شما قبلاً ثبت‌نام کرده‌اید. برای ارسال آگهی، عنوان آگهی را بنویسید.');
+  }
+});
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const user = await User.findOne({ telegramId: chatId });
+  if (!user || user.registered) return;
+
+  user.phone = msg.text;
+  user.registered = true;
+  await user.save();
+  bot.sendMessage(chatId, 'ثبت‌نام شما با موفقیت انجام شد!');
 });
